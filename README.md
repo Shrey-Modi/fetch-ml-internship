@@ -8,7 +8,7 @@ You can run the project either using Docker or by installing Python locally.
 
 ### Using Docker
 
-1. Build the Docker image or pull it from Docker Hub:
+1. Build the Docker image or pull it from Docker Hub([image link](https://hub.docker.com/r/shreymodi/fetch-ml)):
 
    ```bash
    # Build the Docker image (replace '.' with the path to your project directory)
