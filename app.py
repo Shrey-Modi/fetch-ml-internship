@@ -3,36 +3,58 @@ import altair as alt
 import math
 import pandas as pd
 import streamlit as st
+import torch
 
-"""
-# Welcome to Streamlit!
+data = pd.read_csv('https://fetch-hiring.s3.amazonaws.com/machine-learning-engineer/receipt-count-prediction/data_daily.csv')
+data['# Date'] = pd.to_datetime(data['# Date'])
+data['month'] = data['# Date'].dt.month
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
+x = torch.tensor(data.groupby('month')['Receipt_Count'].sum().index, dtype=torch.float32)
+y = torch.tensor(data.groupby('month')['Receipt_Count'].sum().values, dtype=torch.float32)
 
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+x = torch.stack([torch.ones_like(x), x], dim=1)
+w = torch.inverse(x.transpose(0, 1) @ x) @ x.transpose(0, 1) @ y
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+st.title('Receipt Count Prediction')
+st.write('This app predicts the receipt count based on the month of the year.')
+st.write('The data is from January 2021 to December 2021.')
+st.write('The model is a linear regression model')
+st.write('The model is fitted using PyTorch')
+
+month = st.slider('Select month from 2022', 1, 12, 1)
+prediction = w[0] + w[1] * month
+
+month_str = pd.to_datetime(str(month), format='%m').month_name()
+st.write('The predicted receipt count for {} 2022 is {}'.format(month_str, math.floor(prediction)))
 
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+year = st.checkbox('Enable 2021 data', value=True)
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+st.write('The chart below shows the receipt count for each month in 2021 and the predicted receipt count for each month in 2022')
 
-    points_per_turn = total_points / num_turns
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
+y_new = w[0] + w[1] * torch.arange(1, month+12, 1)
 
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+x_new = torch.arange(1, month+12, 1)
+
+fitted_line = st.checkbox('Enable fitted line', value=True)
+
+if fitted_line:
+    chart = alt.Chart(pd.DataFrame({'months since jan 2021': x_new, 'Receipt_Count': y_new})).mark_line(color='red').encode(
+        x='months since jan 2021',
+        y='Receipt_Count'
+    )
+else:
+    chart = alt.Chart(pd.DataFrame({'months since jan 2021': x_new, 'Receipt_Count': y_new})).mark_circle(color='red').encode(
+        x='months since jan 2021',
+        y='Receipt_Count'
+    )
+
+if year:
+    data_to_plot = pd.DataFrame({'months since jan 2021': x[:, 1], 'Receipt_Count': y})
+    chart += alt.Chart(data_to_plot).mark_circle().encode(
+        x='months since jan 2021',
+        y='Receipt_Count'
+    )
+
+st.altair_chart(chart, use_container_width=True)
